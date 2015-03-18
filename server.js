@@ -121,8 +121,7 @@ function RedirectToPage(res, addressTo) {
 		'<script type="text/javascript">location = "' +
 		// Lisää "http://", jos protokolla puuttuu (esim. "localhost").
 		(addressTo.match(/^(https?|ftp):\/\//)
-			? '' : 'http://') + 
-		addressTo + '"</script>');
+			? '' : 'http://') + addressTo + '"</script>');
 };
 
 io.on('connection', function(socket) {
