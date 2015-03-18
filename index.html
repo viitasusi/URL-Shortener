@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<script src="https://cdn.socket.io/socket.io-1.2.0.js"></script>
+  <script src="client.js"></script>
+  <style>
+		div { min-width: 640px; font-size: 12px; }
+		input[type="button"] { width: 120px; }
+		#longUrlInput { width: 606px; }
+		#shortUrlInput { width: 240px; }
+		span { font-size: 11px; }
+	</style>
+</head>
+<body>
+	<div>
+		<h1>URL-osoitteen lyhentäjä</h1>
+			Syötä pitkä URL: <br />
+			<input type="text" id="longUrlInput" maxlength="400"><br /><br />
+			<p>Uudelleenohjauksen vanhenemisaika: 
+			<select id="urlExpirationTime">
+				<option value="never">Ei koskaan</option>
+				<option value="10minutes">10 minuuttia</option>
+				<option value="hour">1 tunti</option>
+				<option value="day">1 päivä</option>
+				<option value="week">1 viikko</option>
+				<option value="2weeks">2 viikkoa</option>
+				<option value="month">1 kuukausi</option>
+			</select><br /><br /></p>
+			<p>Syötä oma lyhyt URL (ei pakollinen): <br /> 
+				<span>
+					<script type="text/javascript">document.write(window.location.href)</script>
+					<input type="text" id="shortUrlInput" maxlength="30"><br />
+					Hyväksyttyjä merkkejä: kirjaimet (a-z), numerot ja väliviivat.
+				</span>
+			</p>
+			
+			<br />
+			<input type="button" value="Luo lyhyt URL" id="btn"><br /><br />
+		<hr /> <br />
+		<div id="shortUrlOutput"></div>
+	</div>
+	
+
+
+</body>
+</html>
