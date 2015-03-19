@@ -17,30 +17,6 @@ var columnname = ['shorturl', 'longurl', 'expirationtime'];
 var crypto = require('crypto');
 var sha;
 
-// Wait.for
-// Tätä osaa tarvitaan seuraavasta syystä:
-// Lyhyt URL muodostetaan satunnaislukugeneraattoria käyttäen.
-// Tämä luo uutta riviä tietokannan tauluun lisättäessä potentiaalisen 
-// riskin, että taulun pääavaimena toimiva lyhyt URL ("shortUrl") voi olla 
-// jo olemassa aiemmilla riveillä. Tietokannassa täytyy siis suorittaa 
-// kaksoiskappaletarkistus. Tämä tapahtuu koodissa silmukassa, jossa
-// ensin luodaan satunnainen lyhyt URL, jota sitten verrataan tietokannassa jo
-// oleviin lyhyisiin URL-osoitteisiin:
-//
-// var found = true;
-// do {
-//   shortUrl = ...; // Luo lyhyt satunnais-URL
-//   connection.query(...); // Tarkista, löytyykö lyhyt URL ja aseta found-arvo
-// } while (found)
-//
-// Ongelmana on, että ohjelman suoritus ei odota MySQL:n asynkronisen
-// connection.query()-metodin palaamista vaan jatkaa silmukkakoodin
-// ajamista. Tästä seurauksena on, että silmukka höylää läpi yhä uudelleen
-// ja uudelleen, tehden siinä sivussa tuhottoman määrän kyselyitä.
-// Wait.for-moduuli kytkeytyy silmukan ja connection.queryn väliin 
-// mahdollistaen metodin suorittamisen synkronisesti, jolloin ongelma poistuu.
-var wait = require('wait.for');
-
 // shortUrl-arvon luontiparametrit
 var shortUrlMaxLength = 30; // Vastaa tietokannan shortUrl-kentän maksimipituutta
 var shortUrlDefaultLength = 10; // Vastaa automaatisesti luodun oletus-shortUrl:n pituutta
@@ -55,15 +31,6 @@ var connection = mysql.createConnection({
 	password : 'test1234',
 	database : dbname,
 });
-
-// Lisää MySQL-olioon wrapper-funktio, jolla saavutetaan 
-// yhteensopivuus wait.forin standardoidun callback-tyypin kanssa.
-// https://github.com/luciotato/waitfor#notes-on-non-standard-callbacks-eg-connectionquery-from-mysql
-connection.q = function(sql, params, stdCallback) { 
- this.query(sql, params, function(err, rows, columns) { 
-   return stdCallback(err, { rows:rows,columns:columns }); 
- });
-}
 
 app.use(express.static(__dirname));
 
@@ -95,9 +62,9 @@ app.get('/*', function(req, res){
 	  connection.query(
 			"SELECT * from " + tablename + 
 				" WHERE " + columnname[0] + " = '" + inputUrl + "'", 
-    	function(err, rows) {
+    	function (err, rows) {
 				if (err)
-					console.log("failed:", err);
+					console.log("MySQL redirect query failed:", err);
 				else {
 					if (rows.length)
 						// Lyhyttä URL:ää vastaava pitkä osoite löytyi tietokannasta.
@@ -127,21 +94,6 @@ function RedirectToPage(res, addressTo) {
 io.on('connection', function(socket) {
 	console.log("New connection from " + socket.handshake.address);
 
-	// Suora kopsu alla olevasta linkistä. Mahdollistaa wait.for-moduulin
-	// toiminnan socket.io:n sisällä.
-	// https://github.com/luciotato/waitfor/issues/27#issuecomment-68976022
-	if (!socket.fiber_injected) {
-	  socket.fiber_injected = true;
-	  socket.old_on = socket.on;
-	  socket.on = function(message_type, actionFn) {
-	    this.old_on(message_type, function() {
-	        var newargs=Array.prototype.slice.call(arguments);
-	        newargs.unshift(actionFn); 
-	        wait.launchFiber.apply(wait, newargs);
-	    });
-	  };
-	};
-
   socket.on('add_url', function(msg) {
   	// msg == JSON.stringify(longUrl, shortUrl, sqlUrlExpirationString)
   	// longUrl on validoitu pitkä URL.
@@ -151,13 +103,14 @@ io.on('connection', function(socket) {
 
   	var obj = JSON.parse(msg);
   	
-  	var found;
   	var shortUrl;
   	var longUrl = obj.longUrl;
   	var sqlUrlExpirationString = obj.sqlUrlExpirationString;
+  	var duplicateFound;
   	do
   	{ 
-	  	if (obj.shortUrl == "")
+  		duplicateFound = false;
+	  	if (!obj.shortUrl.length)
 	  	{
 	  		// Käyttäjä ei syöttänyt lyhyttä URL:ää.
 	  		// Luo satunnainen, muuttujan shortUrlDefaultLength arvon pituinen
@@ -174,7 +127,7 @@ io.on('connection', function(socket) {
 
 					// Luo uusi SHA1-olio
 					sha = crypto.createHash('sha1');
-					// Päivitä SHA1-hash annetulla datalla
+					// Päivitä SHA1-hash annetulla satunnaisluvulla
 					sha.update((Math.floor(Math.random() * 1000000)).toString());
 					// SHA1 hash heksamerkkijonona (40 merkkiä pitkä)
 					hash = sha.digest('hex');
@@ -186,64 +139,73 @@ io.on('connection', function(socket) {
 				}
 			}
 			else
+				// Käyttäjä syötti itse lyhyen URL:n
 				shortUrl = obj.shortUrl;
+
 			/*
 			console.log("shortUrl: " + shortUrl);
 			console.log("longUrl: " + longUrl);
 			console.log("sqlUrlExpirationString: " + sqlUrlExpirationString);
 			*/
 
-			// Tee duplikaattien tarkastuskysely
-			// https://github.com/luciotato/waitfor#notes-on-non-standard-callbacks-eg-connectionquery-from-mysql
-			try {
-			  var result = wait.forMethod(
-			  	connection, 
-			  	"q", 
-			  	"SELECT COUNT(*) AS COUNT FROM " + tablename + 
-			  		" WHERE " + columnname[0] + " = ?", 
-			  	shortUrl); 
-			  found = result.rows[0].COUNT;
-			} 
-			catch(err) {
-			   console.log("wait.for exception: " + err);
-			}
-		// Jos lyhyen URL:n kaksoiskappale löytyi, jatka uuden rakentamista
-		// vain, mikäli käyttäjä ei syöttänyt lyhyttä URL:ää käsin 
-		} while (found && obj.shortUrl == "");
-		
-
-		if (obj.shortUrl != "" && found)
-		{
-			// Käyttäjä syötti lyhyen URL:n itse, mutta se löytyy jo tietokannasta
-			socket.emit('duplicate_custom_shortUrl', obj.shortUrl);
-			return;
-		}
-
-		// Uniikki shortUrl varmistettu
-		// Luo uusi merkintä tietokantaan
-		var sqlExpirationTimeQuery = 
-			sqlUrlExpirationString 
-				? 'DATE_ADD(NOW(), INTERVAL ' + sqlUrlExpirationString + ')'
-				: '00000000000000';
-		
-		connection.query(
-			"INSERT INTO " + tablename + 
-				' VALUES (?, ?, ' + sqlExpirationTimeQuery + ')', 
-			[	shortUrl, longUrl ],
-    	function(err, rows) {
-				if (err)
-					console.log("failed:", err);
-				else {
-					console.log("Row added: " + (rows.affectedRows == true));
-					socket.emit(
-						'url_added', 
-						JSON.stringify({ 'short' : shortUrl, 'long' : longUrl })
-					);
-				}
-			}
-		);
-  });
-});
+			// Tee duplikaattien tarkastuskysely tietokantaan
+			connection.query( 
+		  	"SELECT COUNT(*) AS COUNT FROM " + tablename + 
+		  		" WHERE " + columnname[0] + " = '" + shortUrl + "'",
+		  	function (err, rows) {
+		  		if (err)
+						console.log("MySQL duplicate entry check query failed:", err);
+					else 
+					{
+						var existingRowCount = rows[0].COUNT;
+						if (existingRowCount)
+						{
+							if (obj.shortUrl.length)
+							{
+								// Käyttäjä syötti lyhyen URL:n itse, mutta se löytyy jo tietokannasta
+								// -> ilmoita käyttäjälle asiasta ja lopeta suoritus
+								socket.emit('duplicate_custom_shortUrl', obj.shortUrl);
+								return;
+							}
+							else
+								// Automaattisesti generoitu lyhyt URL löytyy jo tietokannasta
+								// -> aloita uusi silmukan kierros uuden lyhyen URL:n luomiseksi
+								duplicateFound = true;
+						}
+						else
+						{
+							// Uniikki shortUrl varmistettu
+							// Luo uusi merkintä tietokantaan
+							var sqlExpirationTimeQuery = 
+								sqlUrlExpirationString 
+									? 'DATE_ADD(NOW(), INTERVAL ' + sqlUrlExpirationString + ')'
+									: '00000000000000';
+							
+							connection.query(
+								"INSERT INTO " + tablename + 
+									' VALUES (?, ?, ' + sqlExpirationTimeQuery + ')', 
+								[ shortUrl, longUrl ],
+					    	function(err, rows)
+					    	{
+									if (err)
+										console.log("failed:", err);
+									else
+									{
+										console.log("Row added: " + (rows.affectedRows == true));
+										socket.emit(
+											'url_added', 
+											JSON.stringify({ 'short' : shortUrl, 'long' : longUrl })
+										);
+									}
+								}
+							);
+						} // else
+					} // else
+			  } // function (err, rows)
+		  ); // connection.query
+		} while (duplicateFound); 
+  }); // socket.on('add_url', function(msg))
+}); // io.on(connection, function(socket))
 
 http.listen(port, function(){
   console.log('listening on http://localhost:' + port);
