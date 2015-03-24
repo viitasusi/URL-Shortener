@@ -3,7 +3,7 @@ var express = require('express');
 var app = require('express')();
 var http = require('http').createServer(app);
 var io = require('socket.io')(http);
-var port = 3000;
+var port = 3001;
 
 // MySQL
 var mysql = require('mysql');
@@ -28,7 +28,7 @@ var iDivider = shortUrlDefaultLength / 5;
 var connection = mysql.createConnection({
 	host     : 'localhost',
 	user     : 'root',
-	password : 'test1234',
+	password : 'Cac0f0n3',
 	database : dbname,
 });
 

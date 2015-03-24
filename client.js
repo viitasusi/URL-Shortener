@@ -96,6 +96,7 @@ function onClickButton() {
 			);
   	}
   	else
+  		shortUrlOutputElement.setAttribute('class','visible');
   		shortUrlOutputElement.innerHTML = '<p>Epäkelpo pitkä URL: ' + longUrl + '</p>';
 	}
 };
@@ -109,6 +110,7 @@ socket.on('url_added', function(result) {
 	// short == lyhennetty URL, long == alkuperäinen pitkä URL
 	obj = JSON.parse(result);
 	var shortUrl = document.URL + obj.short;
+	shortUrlOutputElement.setAttribute('class','visible');
 	shortUrlOutputElement.innerHTML = 
 		"<p>Antamasi URL: <a href=\"" + obj.long + "\">" + obj.long + "</a></p>" +
 		"<p>Lyhyt URL: <a href=\"" + shortUrl + "\">" + shortUrl + "</a></p>";
@@ -120,6 +122,7 @@ socket.on('duplicate_custom_shortUrl', function(result) {
 	
 	var duplicateShortUrl = result;
 	
+	shortUrlOutputElement.setAttribute('class','visible');
 	shortUrlOutputElement.innerHTML = 
 		"<p>Antamasi lyhyt URL \"" + result + "\" on varattu.";
 });

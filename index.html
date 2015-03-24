@@ -3,21 +3,29 @@
 <head>
 	<script src="https://cdn.socket.io/socket.io-1.2.0.js"></script>
   <script src="client.js"></script>
-  <style>
-		div { min-width: 640px; font-size: 12px; }
-		input[type="button"] { width: 120px; }
-		#longUrlInput { width: 606px; }
-		#shortUrlInput { width: 240px; }
-		span { font-size: 11px; }
-	</style>
+  <link rel="stylesheet" type="text/css" href="style.css">
+
+  <!-- Bootstrap -->
+  <!-- Latest compiled and minified CSS -->
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css">
+
+<!-- Optional theme -->
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap-theme.min.css">
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+<!-- Latest compiled and minified JavaScript -->
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script>
+
 </head>
+
 <body>
-	<div>
+	<div id="iso">
+		<div id="ylin">
 		<h1>URL-osoitteen lyhentäjä</h1>
-			Syötä pitkä URL: <br />
+			Lyhennettävä osoite: <br />
 			<input type="text" id="longUrlInput" maxlength="400"><br /><br />
-			<p>Uudelleenohjauksen vanhenemisaika: 
-			<select id="urlExpirationTime">
+			<p>Lyhyen osoitteen vanhenemisaika: </p>
+			<select class="form-control" id="urlExpirationTime">
 				<option value="never">Ei koskaan</option>
 				<option value="10minutes">10 minuuttia</option>
 				<option value="hour">1 tunti</option>
@@ -25,20 +33,27 @@
 				<option value="week">1 viikko</option>
 				<option value="2weeks">2 viikkoa</option>
 				<option value="month">1 kuukausi</option>
-			</select><br /><br /></p>
-			<p>Syötä oma lyhyt URL (ei pakollinen): <br /> 
-				<span>
-					<script type="text/javascript">document.write(window.location.href)</script>
+			</select><br /><br />
+		</div>
+		<div id="lyhytURL">
+			<br /><br />
+			<p>Halutessasi voit valita itse lyhennetyn www-osoitteen (HUOM! tämä kenttä ei ole pakollinen) <br /> 
+				<b><span id="ohje">
+					<script type="text/javascript">document.write(window.location.href)</script></b>
 					<input type="text" id="shortUrlInput" maxlength="30"><br />
-					Hyväksyttyjä merkkejä: kirjaimet (a-z), numerot ja väliviivat.
+					Hyväksyttyjä merkkejä ovat kirjaimet (a-z), numerot ja väliviivat.
 				</span>
 			</p>
-			
+		</div>
+		<div id="nappi">
 			<br />
-			<input type="button" value="Luo lyhyt URL" id="btn"><br /><br />
-		<hr /> <br />
-		<div id="shortUrlOutput"></div>
+			<button type="button" id="btn" class="btn btn-default btn-lg">Luo lyhyt URL <span class="glyphicon glyphicon-transfer" aria-hidden="true"></span></button><br /><br />
+		
+		</div>
+		
 	</div>
+
+	<div id="shortUrlOutput" class="hidden"></div>
 	
 
 
